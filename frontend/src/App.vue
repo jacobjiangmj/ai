@@ -7,10 +7,32 @@ const maxCharts = 8
 const preferenceStorageKey = 'gitlab-dashboard-preferences'
 const dashboardType = ref('job-id')
 const openSelector = ref('')
+const timeRange = ref('last-30-days')
 const selectorKeyword = reactive({
   stage: '',
   job_name: '',
 })
+const searchSelectionSnapshot = reactive({
+  stage: null,
+  job_name: null,
+})
+
+const timeRangeOptions = [
+  { label: '今天', value: 'today' },
+  { label: '三天内', value: 'last-3-days' },
+  { label: '7天内', value: 'last-7-days' },
+  { label: '30天内', value: 'last-30-days' },
+  { label: '自定义', value: 'custom' },
+]
+const hourOptions = Array.from({ length: 24 }, (_, index) => `${index}`.padStart(2, '0'))
+const minuteOptions = Array.from({ length: 60 }, (_, index) => `${index}`.padStart(2, '0'))
+
+function createDefaultSelectorKeyword() {
+  return {
+    stage: '',
+    job_name: '',
+  }
+}
 
 const dashboardOptions = [
   { label: '按日期耗时看板', value: 'duration' },
@@ -28,13 +50,7 @@ const chartInstances = new Map()
 const filters = reactive(createDefaultFilters())
 
 function createDefaultFilters() {
-  const now = new Date()
-  const start = new Date(now)
-  start.setDate(start.getDate() - 29)
-  start.setHours(0, 0, 0, 0)
-
-  const end = new Date(now)
-  end.setHours(23, 59, 0, 0)
+  const { start, end } = buildDateRange('last-30-days')
 
   return {
     stage: [],
@@ -54,13 +70,122 @@ function formatDateTimeLocal(date) {
   return `${year}-${month}-${day}T${hour}:${minute}`
 }
 
+function formatDisplayDateTime(value) {
+  if (!value) {
+    return ''
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  const hour = `${date.getHours()}`.padStart(2, '0')
+  const minute = `${date.getMinutes()}`.padStart(2, '0')
+
+  return `${year}/${month}/${day} ${hour}:${minute}`
+}
+
+function extractDatePart(value) {
+  if (!value) {
+    return ''
+  }
+  return value.split('T')[0] || ''
+}
+
+function extractTimePart(value) {
+  if (!value || !value.includes('T')) {
+    return ''
+  }
+  return value.split('T')[1].slice(0, 5)
+}
+
+function extractHourPart(value) {
+  const time = extractTimePart(value)
+  return time ? time.split(':')[0] : ''
+}
+
+function extractMinutePart(value) {
+  const time = extractTimePart(value)
+  return time ? time.split(':')[1] : ''
+}
+
+function defaultTimeForKey(key) {
+  return key === 'end_at' ? '23:59' : '00:00'
+}
+
+function updateDatePart(key, nextDate) {
+  if (!nextDate) {
+    filters[key] = ''
+    return
+  }
+
+  const time = extractTimePart(filters[key]) || defaultTimeForKey(key)
+  filters[key] = `${nextDate}T${time}`
+}
+
+function updateTimePart(key, type, nextValue) {
+  const date = extractDatePart(filters[key])
+  if (!date) {
+    return
+  }
+
+  const currentHour = extractHourPart(filters[key]) || defaultTimeForKey(key).split(':')[0]
+  const currentMinute = extractMinutePart(filters[key]) || defaultTimeForKey(key).split(':')[1]
+  const hour = type === 'hour' ? nextValue : currentHour
+  const minute = type === 'minute' ? nextValue : currentMinute
+  filters[key] = `${date}T${hour}:${minute}`
+}
+
+function buildDateRange(range) {
+  const now = new Date()
+  const end = new Date(now)
+  end.setHours(23, 59, 0, 0)
+
+  const start = new Date(now)
+  start.setHours(0, 0, 0, 0)
+
+  if (range === 'today') {
+    return { start, end }
+  }
+
+  const days = {
+    'last-3-days': 2,
+    'last-7-days': 6,
+    'last-30-days': 29,
+  }[range]
+
+  if (typeof days === 'number') {
+    start.setDate(start.getDate() - days)
+  }
+
+  return { start, end }
+}
+
+function applyTimeRange(range) {
+  timeRange.value = range
+
+  if (range === 'custom') {
+    return
+  }
+
+  const { start, end } = buildDateRange(range)
+  filters.start_at = formatDateTimeLocal(start)
+  filters.end_at = formatDateTimeLocal(end)
+}
+
 function loadPreferences() {
   const defaults = createDefaultFilters()
+  const selectorDefaults = createDefaultSelectorKeyword()
 
   try {
     const raw = localStorage.getItem(preferenceStorageKey)
     if (!raw) {
       Object.assign(filters, defaults)
+      Object.assign(selectorKeyword, selectorDefaults)
       dashboardType.value = 'job-id'
       return
     }
@@ -71,9 +196,14 @@ function loadPreferences() {
     filters.search = typeof saved.search === 'string' ? saved.search : defaults.search
     filters.start_at = typeof saved.start_at === 'string' && saved.start_at ? saved.start_at : defaults.start_at
     filters.end_at = typeof saved.end_at === 'string' && saved.end_at ? saved.end_at : defaults.end_at
+    timeRange.value = typeof saved.timeRange === 'string' ? saved.timeRange : 'last-30-days'
+    selectorKeyword.stage = typeof saved.selector_stage_keyword === 'string' ? saved.selector_stage_keyword : selectorDefaults.stage
+    selectorKeyword.job_name = typeof saved.selector_job_name_keyword === 'string' ? saved.selector_job_name_keyword : selectorDefaults.job_name
     dashboardType.value = saved.dashboardType === 'duration' || saved.dashboardType === 'job-id' ? saved.dashboardType : 'job-id'
   } catch {
     Object.assign(filters, defaults)
+    Object.assign(selectorKeyword, selectorDefaults)
+    timeRange.value = 'last-30-days'
     dashboardType.value = 'job-id'
   }
 }
@@ -86,11 +216,16 @@ function savePreferences() {
       stage: filters.stage,
       job_name: filters.job_name,
       search: filters.search,
+      timeRange: timeRange.value,
       start_at: filters.start_at,
       end_at: filters.end_at,
+      selector_stage_keyword: selectorKeyword.stage,
+      selector_job_name_keyword: selectorKeyword.job_name,
     }),
   )
 }
+
+loadPreferences()
 
 const filteredJobs = computed(() => {
   if (!filters.stage.length) {
@@ -138,6 +273,15 @@ const searchableJobs = computed(() => {
     return jobs
   }
   return jobs.filter((item) => item.toLowerCase().includes(keyword))
+})
+const displayStartAt = computed(() => formatDisplayDateTime(filters.start_at))
+const displayEndAt = computed(() => formatDisplayDateTime(filters.end_at))
+const timeRangeDisplayText = computed(() => {
+  const quickLabel = timeRangeOptions.find((item) => item.value === timeRange.value)?.label || '自定义'
+  if (!displayStartAt.value || !displayEndAt.value) {
+    return quickLabel
+  }
+  return `${quickLabel} | ${displayStartAt.value} - ${displayEndAt.value}`
 })
 
 function buildSelectorText(values, placeholder) {
@@ -373,6 +517,7 @@ function resetFilters() {
   filters.search = defaults.search
   filters.start_at = defaults.start_at
   filters.end_at = defaults.end_at
+  timeRange.value = 'last-30-days'
   dashboardType.value = 'job-id'
   openSelector.value = ''
 }
@@ -380,12 +525,10 @@ function resetFilters() {
 function toggleSelector(name) {
   if (openSelector.value === name) {
     openSelector.value = ''
-    selectorKeyword[name] = ''
     return
   }
 
   openSelector.value = name
-  selectorKeyword[name] = ''
 }
 
 function toggleMultiValue(key, value) {
@@ -399,20 +542,53 @@ function toggleMultiValue(key, value) {
   }
 
   filters[key] = values
+  searchSelectionSnapshot[key] = null
+  savePreferences()
 }
 
 function removeMultiValue(key, value) {
   filters[key] = filters[key].filter((item) => item !== value)
+  searchSelectionSnapshot[key] = null
+  savePreferences()
 }
 
 function clearMultiValue(key) {
   filters[key] = []
+  searchSelectionSnapshot[key] = null
+  savePreferences()
+}
+
+function selectAllSearchResults(key) {
+  const visibleOptions = key === 'stage' ? searchableStages.value : searchableJobs.value
+  const snapshot = searchSelectionSnapshot[key]
+
+  if (snapshot) {
+    filters[key] = [...snapshot]
+    searchSelectionSnapshot[key] = null
+    savePreferences()
+    return
+  }
+
+  const currentValues = new Set(filters[key])
+  searchSelectionSnapshot[key] = [...filters[key]]
+
+  visibleOptions.forEach((item) => currentValues.add(item))
+  filters[key] = Array.from(currentValues)
+  savePreferences()
+}
+
+function clearTimeRange() {
+  timeRange.value = 'custom'
+  filters.start_at = ''
+  filters.end_at = ''
+}
+
+function handleBeforeUnload() {
+  savePreferences()
 }
 
 function handleDocumentClick() {
   openSelector.value = ''
-  selectorKeyword.stage = ''
-  selectorKeyword.job_name = ''
 }
 
 watch(
@@ -426,6 +602,14 @@ watch(
 watch(
   () => [filters.start_at, filters.end_at],
   () => {
+    if (timeRange.value !== 'custom') {
+      const { start, end } = buildDateRange(timeRange.value)
+      const matchesQuickRange = filters.start_at === formatDateTimeLocal(start) && filters.end_at === formatDateTimeLocal(end)
+      if (!matchesQuickRange) {
+        timeRange.value = 'custom'
+      }
+    }
+
     if (hasTimeRangeError.value) {
       errorMessage.value = '开始时间必须小于等于结束时间'
     } else if (errorMessage.value === '开始时间必须小于等于结束时间') {
@@ -435,24 +619,33 @@ watch(
 )
 
 watch(
-  () => [dashboardType.value, filters.stage.join('|'), filters.job_name.join('|'), filters.search, filters.start_at, filters.end_at],
+  () => [dashboardType.value, timeRange.value, filters.stage.join('|'), filters.job_name.join('|'), filters.search, filters.start_at, filters.end_at],
   () => {
     savePreferences()
     loadCharts()
   },
 )
 
+watch(
+  () => [selectorKeyword.stage, selectorKeyword.job_name],
+  () => {
+    savePreferences()
+  },
+)
+
 onMounted(async () => {
-  loadPreferences()
   await loadFilterOptions()
   await loadCharts()
   window.addEventListener('resize', resizeCharts)
+  window.addEventListener('beforeunload', handleBeforeUnload)
   document.addEventListener('click', handleDocumentClick)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resizeCharts)
+  window.removeEventListener('beforeunload', handleBeforeUnload)
   document.removeEventListener('click', handleDocumentClick)
+  savePreferences()
   clearCharts()
 })
 </script>
@@ -487,7 +680,7 @@ onBeforeUnmount(() => {
 
       <section class="toolbar toolbar-compact">
         <label class="selector-field">
-          <span>阶段多选</span>
+          <span>阶段选择</span>
           <div class="selector" @click.stop="toggleSelector('stage')">
             <button type="button" class="selector-trigger">
               <span class="selector-text">{{ stageDisplayText }}</span>
@@ -495,7 +688,7 @@ onBeforeUnmount(() => {
             </button>
             <div v-if="openSelector === 'stage'" class="selector-panel" @click.stop>
               <div class="selector-toolbar">
-                <input v-model.trim="selectorKeyword.stage" class="selector-search" type="text" placeholder="搜索阶段" />
+                <input v-model.trim="selectorKeyword.stage" class="selector-search" type="text" placeholder="搜索阶段" @keydown.enter.prevent="selectAllSearchResults('stage')" />
                 <button type="button" class="tiny-button" @click="clearMultiValue('stage')">清空</button>
               </div>
               <label v-for="stage in searchableStages" :key="stage" class="selector-option" :title="stage">
@@ -512,7 +705,7 @@ onBeforeUnmount(() => {
         </label>
 
         <label class="selector-field">
-          <span>作业名多选</span>
+          <span>作业选择</span>
           <div class="selector" @click.stop="toggleSelector('job_name')">
             <button type="button" class="selector-trigger">
               <span class="selector-text">{{ jobDisplayText }}</span>
@@ -520,7 +713,7 @@ onBeforeUnmount(() => {
             </button>
             <div v-if="openSelector === 'job_name'" class="selector-panel" @click.stop>
               <div class="selector-toolbar">
-                <input v-model.trim="selectorKeyword.job_name" class="selector-search" type="text" placeholder="搜索作业名" />
+                <input v-model.trim="selectorKeyword.job_name" class="selector-search" type="text" placeholder="搜索作业名" @keydown.enter.prevent="selectAllSearchResults('job_name')" />
                 <button type="button" class="tiny-button" @click="clearMultiValue('job_name')">清空</button>
               </div>
               <label v-for="job in searchableJobs" :key="job" class="selector-option" :title="job">
@@ -541,14 +734,62 @@ onBeforeUnmount(() => {
           <input v-model.trim="filters.search" type="text" placeholder="输入作业名称关键字" />
         </label>
 
-        <label>
-          <span>开始时间</span>
-          <input v-model="filters.start_at" :max="filters.end_at || undefined" type="datetime-local" step="60" />
-        </label>
-
-        <label>
-          <span>结束时间</span>
-          <input v-model="filters.end_at" :min="filters.start_at || undefined" type="datetime-local" step="60" />
+        <label class="selector-field time-selector-field">
+          <span>时间范围</span>
+          <div class="selector" @click.stop="toggleSelector('time-range')">
+            <button type="button" class="selector-trigger">
+              <span class="selector-text">{{ timeRangeDisplayText }}</span>
+              <span class="selector-arrow">{{ openSelector === 'time-range' ? '▲' : '▼' }}</span>
+            </button>
+            <div v-if="openSelector === 'time-range'" class="selector-panel time-selector-panel" @click.stop>
+              <div class="time-range-group">
+                <button
+                  v-for="option in timeRangeOptions"
+                  :key="option.value"
+                  type="button"
+                  class="time-range-button"
+                  :class="{ active: timeRange === option.value }"
+                  @click="applyTimeRange(option.value)"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+              <div class="time-range-inputs">
+                <div class="time-range-row">
+                  <label class="time-input-field time-input-inline">
+                    <span>开始</span>
+                    <div class="time-part-row">
+                      <input :value="extractDatePart(filters.start_at)" type="date" @input="updateDatePart('start_at', $event.target.value)" />
+                      <select :value="extractHourPart(filters.start_at)" @change="updateTimePart('start_at', 'hour', $event.target.value)">
+                        <option v-for="hour in hourOptions" :key="`start-hour-${hour}`" :value="hour">{{ hour }}</option>
+                      </select>
+                      <span class="time-part-separator">:</span>
+                      <select :value="extractMinutePart(filters.start_at)" @change="updateTimePart('start_at', 'minute', $event.target.value)">
+                        <option v-for="minute in minuteOptions" :key="`start-minute-${minute}`" :value="minute">{{ minute }}</option>
+                      </select>
+                    </div>
+                  </label>
+                  <span class="time-range-divider">-</span>
+                  <label class="time-input-field time-input-inline">
+                    <span>结束</span>
+                    <div class="time-part-row">
+                      <input :value="extractDatePart(filters.end_at)" type="date" @input="updateDatePart('end_at', $event.target.value)" />
+                      <select :value="extractHourPart(filters.end_at)" @change="updateTimePart('end_at', 'hour', $event.target.value)">
+                        <option v-for="hour in hourOptions" :key="`end-hour-${hour}`" :value="hour">{{ hour }}</option>
+                      </select>
+                      <span class="time-part-separator">:</span>
+                      <select :value="extractMinutePart(filters.end_at)" @change="updateTimePart('end_at', 'minute', $event.target.value)">
+                        <option v-for="minute in minuteOptions" :key="`end-minute-${minute}`" :value="minute">{{ minute }}</option>
+                      </select>
+                    </div>
+                  </label>
+                </div>
+              </div>
+              <div class="time-range-actions">
+                <button type="button" class="tiny-button" @click="clearTimeRange">清空</button>
+              </div>
+            </div>
+          </div>
         </label>
 
         <button class="ghost-button compact-reset" @click="resetFilters">重置筛选</button>
@@ -557,8 +798,9 @@ onBeforeUnmount(() => {
       <section class="selection-summary">
         <span>已选阶段：{{ filters.stage.length }}</span>
         <span>已选作业：{{ filters.job_name.length }}</span>
-        <span>开始：{{ filters.start_at }}</span>
-        <span>结束：{{ filters.end_at }}</span>
+        <span>快捷时间：{{ timeRangeOptions.find((item) => item.value === timeRange)?.label || '自定义' }}</span>
+        <span>开始：{{ displayStartAt }}</span>
+        <span>结束：{{ displayEndAt }}</span>
       </section>
 
       <section class="status-row">

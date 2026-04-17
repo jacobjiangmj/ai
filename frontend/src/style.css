@@ -272,6 +272,89 @@ select {
   cursor: pointer;
 }
 
+.time-selector-field {
+  min-width: 0;
+}
+
+.time-selector-panel {
+  min-width: 360px;
+}
+
+.time-range-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.time-range-button {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.time-range-button.active {
+  border-color: transparent;
+  background: linear-gradient(135deg, #4338ca, #2563eb);
+  color: #fff;
+}
+
+.time-range-inputs {
+  margin-top: 12px;
+}
+
+.time-range-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.time-input-inline {
+  min-width: 0;
+}
+
+.time-range-divider {
+  display: none;
+}
+
+.time-input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #475569;
+  font-size: 13px;
+}
+
+.time-input-field input {
+  width: 100%;
+}
+
+.time-part-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 84px auto 84px;
+  gap: 8px;
+  align-items: center;
+}
+
+.time-part-row input,
+.time-part-row select {
+  width: 100%;
+}
+
+.time-part-separator {
+  color: #475569;
+  font-weight: 700;
+  text-align: center;
+}
+
+.time-range-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
 .compact-reset {
   margin-top: 22px;
 }
@@ -428,6 +511,26 @@ select {
 
   .toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .time-selector-panel {
+    min-width: 0;
+  }
+
+  .time-part-row {
+    grid-template-columns: 1fr;
+  }
+
+  .time-range-row {
+    grid-template-columns: 1fr;
+  }
+
+  .time-part-separator {
+    display: none;
+  }
+
+  .time-range-divider {
+    display: none;
   }
 
   .dashboard-switcher {
