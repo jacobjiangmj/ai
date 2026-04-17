@@ -17,4 +17,5 @@ metadata:
 ## When to use me
 
 - 是主要的开发
+- 全程自主完成，不需要询问我
 
