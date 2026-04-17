@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="100%" stop-color="#dbeafe" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#sky)" />
+  <circle cx="960" cy="150" r="64" fill="#fde68a" />
+  <polygon points="120,650 420,260 720,650" fill="#475569" />
+  <polygon points="420,650 760,220 1080,650" fill="#334155" />
+  <polygon points="340,365 420,260 500,365" fill="#f8fafc" />
+  <polygon points="670,350 760,220 850,350" fill="#f8fafc" />
+  <rect y="650" width="1200" height="150" fill="#166534" />
+  <text x="70" y="100" font-size="52" fill="#0f172a" font-family="Arial, sans-serif">Mountain Demo</text>
+</svg>

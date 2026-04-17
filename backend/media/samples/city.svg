@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#111827" />
+  <rect y="540" width="1200" height="260" fill="#1f2937" />
+  <rect x="120" y="250" width="170" height="290" fill="#374151" />
+  <rect x="320" y="180" width="140" height="360" fill="#4b5563" />
+  <rect x="500" y="120" width="220" height="420" fill="#374151" />
+  <rect x="760" y="220" width="160" height="320" fill="#4b5563" />
+  <rect x="960" y="300" width="130" height="240" fill="#374151" />
+  <g fill="#fde68a">
+    <rect x="150" y="280" width="22" height="28" />
+    <rect x="190" y="280" width="22" height="28" />
+    <rect x="230" y="280" width="22" height="28" />
+    <rect x="350" y="220" width="20" height="24" />
+    <rect x="390" y="220" width="20" height="24" />
+    <rect x="545" y="165" width="26" height="30" />
+    <rect x="590" y="165" width="26" height="30" />
+    <rect x="635" y="165" width="26" height="30" />
+    <rect x="790" y="260" width="22" height="26" />
+    <rect x="830" y="260" width="22" height="26" />
+    <rect x="995" y="335" width="18" height="22" />
+    <rect x="1030" y="335" width="18" height="22" />
+  </g>
+  <text x="70" y="100" font-size="52" fill="#f9fafb" font-family="Arial, sans-serif">City Demo</text>
+</svg>
