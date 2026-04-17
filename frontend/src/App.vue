@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 
-const backendBase = 'http://127.0.0.1:8000'
+const backendBase = import.meta.env.VITE_BACKEND_BASE_URL || 'http://127.0.0.1:8001'
 const maxCharts = 8
 const preferenceStorageKey = 'gitlab-dashboard-preferences'
 const dashboardType = ref('job-id')
@@ -46,6 +46,8 @@ const charts = ref([])
 const filterOptions = ref({ stages: [], jobs: [], stage_job_map: {}, limits: { maxCharts }, config: { hasToken: false } })
 const chartRefs = ref([])
 const chartInstances = new Map()
+const stageSearchInputRef = ref(null)
+const jobNameSearchInputRef = ref(null)
 
 const filters = reactive(createDefaultFilters())
 
@@ -522,13 +524,22 @@ function resetFilters() {
   openSelector.value = ''
 }
 
-function toggleSelector(name) {
+async function toggleSelector(name) {
   if (openSelector.value === name) {
     openSelector.value = ''
     return
   }
 
   openSelector.value = name
+
+  if (name === 'stage' || name === 'job_name') {
+    await nextTick()
+    if (name === 'stage') {
+      stageSearchInputRef.value?.focus()
+    } else {
+      jobNameSearchInputRef.value?.focus()
+    }
+  }
 }
 
 function toggleMultiValue(key, value) {
@@ -688,7 +699,7 @@ onBeforeUnmount(() => {
             </button>
             <div v-if="openSelector === 'stage'" class="selector-panel" @click.stop>
               <div class="selector-toolbar">
-                <input v-model.trim="selectorKeyword.stage" class="selector-search" type="text" placeholder="搜索阶段" @keydown.enter.prevent="selectAllSearchResults('stage')" />
+                <input ref="stageSearchInputRef" v-model.trim="selectorKeyword.stage" class="selector-search" type="text" placeholder="搜索阶段" @keydown.enter.prevent="selectAllSearchResults('stage')" />
                 <button type="button" class="tiny-button" @click="clearMultiValue('stage')">清空</button>
               </div>
               <label v-for="stage in searchableStages" :key="stage" class="selector-option" :title="stage">
@@ -713,7 +724,7 @@ onBeforeUnmount(() => {
             </button>
             <div v-if="openSelector === 'job_name'" class="selector-panel" @click.stop>
               <div class="selector-toolbar">
-                <input v-model.trim="selectorKeyword.job_name" class="selector-search" type="text" placeholder="搜索作业名" @keydown.enter.prevent="selectAllSearchResults('job_name')" />
+                <input ref="jobNameSearchInputRef" v-model.trim="selectorKeyword.job_name" class="selector-search" type="text" placeholder="搜索作业名" @keydown.enter.prevent="selectAllSearchResults('job_name')" />
                 <button type="button" class="tiny-button" @click="clearMultiValue('job_name')">清空</button>
               </div>
               <label v-for="job in searchableJobs" :key="job" class="selector-option" :title="job">
