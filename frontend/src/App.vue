@@ -671,6 +671,8 @@ onBeforeUnmount(() => {
           <p class="subtext">默认展示按作业 ID 看板，折线图展示耗时变化，筛选条件会自动保存到本地。</p>
         </div>
         <div class="hero-actions">
+          <RouterLink class="ghost-link" to="/xiangqi">象棋游戏</RouterLink>
+          <RouterLink class="ghost-link" to="/gomoku">五子棋游戏</RouterLink>
           <button class="primary-button" :disabled="syncing" @click="syncData">
             {{ syncing ? '同步中...' : '同步 GitLab 数据' }}
           </button>
